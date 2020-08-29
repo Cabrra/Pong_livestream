@@ -5,6 +5,7 @@ using UnityEngine;
 public class AIBehavior : MonoBehaviour
 {
     private static string BALL_TAG = "Ball";
+    private static float PADDLE_REACH = 1.0f;
 
     public float speed = 10.0f; // the speed that a paddle can move per frame: pixels per frame
     public float boundY = 5.01f; //the height of the object
@@ -23,17 +24,18 @@ public class AIBehavior : MonoBehaviour
         //compare where is the AI paddle position and move accordingly
         float ballPosY = this.theBall.transform.position.y;
         var velocity = body2d.velocity;
+        float distanceY = ballPosY - this.transform.position.y;
 
-        if (ballPosY > this.transform.position.y)
+        if (distanceY > PADDLE_REACH)
         {
             //move up
             //using player's method
             velocity.y = this.speed;
 
-        } else if (ballPosY < this.transform.position.y)
+        } else if (distanceY < -PADDLE_REACH)
         {
             //move down
-            velocity.y = -this.speed;
+            velocity.y = -this.speed ;
 
         } else
         {

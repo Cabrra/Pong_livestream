@@ -197,9 +197,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveUp: 119
   moveDowwn: 115
+  shoot: 32
   speed: 10
   boundY: 5.01
   body2d: {fileID: 7060478167642639945}
+  bulletObject: {fileID: 1796148673494761998, guid: 87e67bc623f8b2a46ab886b164007911,
+    type: 3}
 --- !u!61 &5039159357580407330
 BoxCollider2D:
   m_ObjectHideFlags: 0
