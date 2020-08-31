@@ -6,14 +6,24 @@ using UnityEngine.UI;
 public class PlayerPaddle : MonoBehaviour {
 
     //Game variables
-    private static float BULLET_TIMER = 4.0f; // 4 seconds 
-    private static float SHOOT_DELAY = 1.5f; // 1.5 seconds 
-    private static int TOTAL_BULLETS = 5; // 5 bullets 
+    private static float BULLET_TIMER = 2.0f; // 2 seconds 
+    private static float SHOOT_DELAY = 0.5f; // 0.5 seconds 
+    private static int TOTAL_BULLETS = 10; // 10 bullets 
     private static string BULLET_UI_TEXT_TAG = "PlayerBullets";
-    //Movement
+    private static float SHIELD_FULL_HP = 50.0f;
+    private static float SHIELD_REGEN = 20.0f;
+    private static float SHIELD_REGEN_TIMER = 5.0f;
+    private static float SHIELD_STUN_TIMER = 1.5f;
+
+    //Movement for player
     public KeyCode moveUp = KeyCode.W;
     public KeyCode moveDowwn = KeyCode.S;
     public KeyCode shoot = KeyCode.Space;
+    //for AI
+    private static string BALL_TAG = "Ball";
+    private static float PADDLE_REACH = 1.0f;
+    private GameObject theBall;
+
     public float speed = 10.0f; // the speed that a paddle can move per frame: pixels per frame
     public float boundY = 5.01f; //the height of the object
     public Rigidbody2D body2d; // will be defined on the start() method
@@ -21,9 +31,15 @@ public class PlayerPaddle : MonoBehaviour {
     public float currentBullets;
     public Text bulletsText;
 
+    //shield variable
+    private float shieldCurrentCooldown;
+    private float currentShield;
+    private bool isStunned;
+    private float stunTimer;
+
     private float bulletRegenTimer;
     private float shootTimer;
-
+    public bool isPlayer;
 
     // Start is called before the first frame update
     void Start()
@@ -32,10 +48,16 @@ public class PlayerPaddle : MonoBehaviour {
          * this will get the rigidbody from the object this script is attached to.
          * If we had more than one rigidbody we would need to specify the object.
          */
+        this.theBall = GameObject.FindGameObjectWithTag(BALL_TAG);
         body2d = GetComponent<Rigidbody2D>();
         currentBullets = TOTAL_BULLETS;
         bulletRegenTimer = BULLET_TIMER;
         shootTimer = 0.0f;
+        currentShield = SHIELD_FULL_HP;
+        isStunned = false;
+        stunTimer = SHIELD_STUN_TIMER;
+        shieldCurrentCooldown = SHIELD_REGEN_TIMER;
+
         this.bulletsText = GameObject.FindGameObjectWithTag(BULLET_UI_TEXT_TAG)
             .GetComponent<Text>();
         updateBulletsUI();
@@ -46,30 +68,20 @@ public class PlayerPaddle : MonoBehaviour {
         manageBullets();
         //rigidbody has a lot of cool members such as posdition and velocity
         var velocity = body2d.velocity;
-        //are we pressing down?
-        if (Input.GetKey(moveDowwn)) {
-            //move down
-            velocity.y = -speed;
-        } else if (Input.GetKey(moveUp)){
-            //move up
-            velocity.y = speed;
-        } else{
-            velocity.y = 0;
-        }
-
-        if (Input.GetKey(shoot))
+       
+        if (isPlayer)
         {
-            if (currentBullets > 0 && shootTimer <= 0)
-            {
-                shootTimer = SHOOT_DELAY;
-                currentBullets--;
-                GameObject bullet = Instantiate(bulletObject);
-                Vector3 pos = this.transform.position;
-                pos.x += 2.0f;
-                bullet.transform.position = pos;
-            }
+            velocity.y = managePlayerMovement();
+            managePlayerShooting();
+        }
+        else
+        {
+            //TODO: add AI shooting
+            velocity.y = manageAIMovement();
+
         }
 
+        manageShields();
         body2d.velocity = velocity;
 
         //move the paddle and check bounds - this may need some testing
@@ -92,7 +104,8 @@ public class PlayerPaddle : MonoBehaviour {
     {
         //only manage bullets if we don't have the 
         float dt = Time.deltaTime;
-        if (currentBullets < TOTAL_BULLETS)
+        if (currentBullets < TOTAL_BULLETS 
+            && !isStunned)
         {
             if (bulletRegenTimer <= 0)
             {
@@ -109,11 +122,137 @@ public class PlayerPaddle : MonoBehaviour {
         {
             shootTimer -= dt;
         }
-        updateBulletsUI();
+        if (isPlayer)
+        {
+            updateBulletsUI();
+        }
     }
 
     private void updateBulletsUI()
     {
         bulletsText.text = currentBullets.ToString();
+    }
+
+    private void managePlayerShooting()
+    {
+        if (!isStunned)
+        {
+            if (Input.GetKey(shoot))
+            {
+                if (currentBullets > 0 && shootTimer <= 0)
+                {
+                    shootTimer = SHOOT_DELAY;
+                    currentBullets--;
+                    GameObject bullet = Instantiate(bulletObject);
+                    Vector3 pos = this.transform.position;
+                    pos.x += 0.5f;
+                    bullet.transform.position = pos;
+
+                    bullet.SendMessage("setOwner", isPlayer, SendMessageOptions.RequireReceiver);
+                }
+            }
+        }
+    }
+
+    private float managePlayerMovement()
+    {
+        //early exit
+        if (isStunned)
+        {
+            return 0;
+        }
+
+        if (Input.GetKey(moveDowwn))
+        {
+            //move down
+            return -speed;
+        }
+        else if (Input.GetKey(moveUp))
+        {
+            //move up
+            return speed;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    private void manageShields()
+    {
+        //optimization - call Time.deltatime only once and pass it
+        float dt = Time.deltaTime;
+        if (isStunned)
+        {
+            //handle stun
+            if (stunTimer <= 0)
+            {
+                stunTimer = SHIELD_STUN_TIMER;
+                isStunned = false;
+            }
+            else
+            {
+                stunTimer -= dt;
+            }
+        }
+
+        //handle shield regeneration
+        if (currentShield < SHIELD_FULL_HP)
+        {
+            if (shieldCurrentCooldown <= 0) 
+            {
+                shieldCurrentCooldown = SHIELD_REGEN_TIMER;
+                currentShield += SHIELD_REGEN;
+                //sanitize
+                if (currentShield > SHIELD_FULL_HP)
+                {
+                    currentShield = SHIELD_FULL_HP;
+                }
+            }
+            else
+            {
+                shieldCurrentCooldown -= dt;
+            }
+        }
+    }
+    public void damageShield (float damage)
+    {
+        //TODO - not allow lose more shield if already stunned
+        this.currentShield -= damage;
+        if(this.currentShield <= 0)
+        {
+            currentShield = 0.0f;
+            isStunned = true;
+        }
+    }
+
+    private float manageAIMovement()
+    {
+        //early exit
+        if (isStunned)
+        {
+            return 0;
+        }
+
+        float ballPosY = this.theBall.transform.position.y;
+        var velocity = body2d.velocity;
+        float distanceY = ballPosY - this.transform.position.y;
+
+        if (distanceY > PADDLE_REACH)
+        {
+            //move up
+            //using player's method
+            return this.speed;
+
+        }
+        else if (distanceY < -PADDLE_REACH)
+        {
+            //move down
+            return -this.speed;
+        }
+        else
+        {
+            return 0;
+        }
     }
 }

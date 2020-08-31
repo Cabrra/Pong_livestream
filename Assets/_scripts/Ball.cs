@@ -7,7 +7,7 @@ public class Ball : MonoBehaviour
     private static float Y_DIRECTION = 15.0f;
     private static float X_DIRECTION = 15.0f;
     private static float PREFIOUS_POSITION_X;
-    private static float BUFFER_TIMER = 4.0f;
+    private static float BUFFER_TIMER = 6.0f;
 
     public Rigidbody2D body2d;
     private float bufferTimer;
@@ -57,7 +57,7 @@ public class Ball : MonoBehaviour
             Vector2 velocity = Vector2.zero;
             velocity.x = this.body2d.velocity.x;
             velocity.y = body2d.velocity.y + 
-                (collision.collider.attachedRigidbody.velocity.y * 0.1f);
+                (collision.collider.attachedRigidbody.velocity.y * 0.2f);
             this.body2d.velocity = velocity;
         }
     }
