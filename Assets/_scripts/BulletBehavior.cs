@@ -4,14 +4,14 @@ using UnityEngine;
 
 public class BulletBehavior : MonoBehaviour
 {
-    private static float X_VELOCITY = 10.0f;
+    private static float X_VELOCITY = 15.0f;
     private static string PLAYER_TAG = "Player";
     private static string AI_TAG = "AI";
     private static float BULLET_LIFETIME = 5.0f;
-    private static float BULLET_DAMAGE = 30.0f;
+    private static float BULLET_DAMAGE = 20.0f;
     private static Vector3 ROTATION_DIRECTION = new Vector3(0.0f, 0.0f, 90.0f);
 
-    public bool ownerIsPlayer;
+    public bool ownerIsLeft;
     private Rigidbody2D body2d;
     private float currentLife;
 
@@ -21,7 +21,7 @@ public class BulletBehavior : MonoBehaviour
         this.body2d = this.GetComponent<Rigidbody2D>();
         currentLife = BULLET_LIFETIME;
 
-        if(ownerIsPlayer)
+        if(ownerIsLeft)
         {
             this.body2d.velocity = new Vector2(X_VELOCITY, 0);
         } 
@@ -49,36 +49,23 @@ public class BulletBehavior : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.collider.CompareTag(PLAYER_TAG))
+        if (collision.collider.CompareTag(PLAYER_TAG) ||
+            collision.collider.CompareTag(AI_TAG))
         {
-            if(!ownerIsPlayer)
-            //{
-            //    //destroy the bullet
-            //    destroyBullet();
-            //}
-            //else
-            {
-                collision.collider
-                    .gameObject.SendMessage(
-                    "damageShield", BULLET_DAMAGE, SendMessageOptions.RequireReceiver);
-                destroyBullet();
-            }
-        }
-        else if (collision.collider.CompareTag(AI_TAG))
+            manageCollision(collision);
+        }          
+    }
+
+    private void manageCollision (Collision2D collision)
+    {
+        PlayerPaddle script = collision.collider
+               .GetComponent<PlayerPaddle>();
+        if (script.isLeft != ownerIsLeft)
         {
-            if (ownerIsPlayer)
-            {
-                //damage shield
-                collision.collider
-                    .gameObject.SendMessage(
-                    "damageShield", BULLET_DAMAGE, SendMessageOptions.RequireReceiver);
-                destroyBullet();
-            }
-            //else
-            //{
-            //    //destroy the bullet
-            //    destroyBullet();
-            //}
+            destroyBullet();
+            collision.collider
+                .gameObject.SendMessage(
+                "damageShield", BULLET_DAMAGE, SendMessageOptions.RequireReceiver);
         }
     }
 
@@ -89,6 +76,6 @@ public class BulletBehavior : MonoBehaviour
 
     public void setOwner(bool isPlayer)
     {
-        this.ownerIsPlayer = isPlayer;
+        this.ownerIsLeft = isPlayer;
     }
 }

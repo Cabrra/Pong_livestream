@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlayerPaddle : MonoBehaviour {
+public class PlayerPaddle : MonoBehaviour
+{
 
     //Game variables
-    private static float BULLET_TIMER = 2.0f; // 2 seconds 
+    private static float BULLET_TIMER = 1.5f; // 1.5 seconds 
     private static float SHOOT_DELAY = 0.5f; // 0.5 seconds 
     private static int TOTAL_BULLETS = 10; // 10 bullets 
     private static string BULLET_UI_TEXT_TAG = "PlayerBullets";
@@ -23,6 +24,7 @@ public class PlayerPaddle : MonoBehaviour {
     private static string BALL_TAG = "Ball";
     private static float PADDLE_REACH = 1.0f;
     private GameObject theBall;
+    private float currentShootingTimer;
 
     public float speed = 10.0f; // the speed that a paddle can move per frame: pixels per frame
     public float boundY = 5.01f; //the height of the object
@@ -30,12 +32,14 @@ public class PlayerPaddle : MonoBehaviour {
     public GameObject bulletObject;
     public float currentBullets;
     public Text bulletsText;
+    public bool isLeft;
 
     //shield variable
     private float shieldCurrentCooldown;
     private float currentShield;
     private bool isStunned;
     private float stunTimer;
+    public GameObject shieldUI;
 
     private float bulletRegenTimer;
     private float shootTimer;
@@ -57,6 +61,7 @@ public class PlayerPaddle : MonoBehaviour {
         isStunned = false;
         stunTimer = SHIELD_STUN_TIMER;
         shieldCurrentCooldown = SHIELD_REGEN_TIMER;
+        resetShootingTimer();
 
         this.bulletsText = GameObject.FindGameObjectWithTag(BULLET_UI_TEXT_TAG)
             .GetComponent<Text>();
@@ -64,19 +69,20 @@ public class PlayerPaddle : MonoBehaviour {
     }
 
     // Update is called once per frame
-    void Update(){
+    void Update()
+    {
         manageBullets();
         //rigidbody has a lot of cool members such as posdition and velocity
         var velocity = body2d.velocity;
-       
+
         if (isPlayer)
         {
             velocity.y = managePlayerMovement();
-            managePlayerShooting();
+            if (Input.GetKey(shoot)) manageShooting();
         }
         else
         {
-            //TODO: add AI shooting
+            manageAIShooting();
             velocity.y = manageAIMovement();
 
         }
@@ -88,10 +94,13 @@ public class PlayerPaddle : MonoBehaviour {
         //get the object's position
         var position = body2d.position;
 
-        if (position.y > boundY) {
+        if (position.y > boundY)
+        {
             //if the object is outside the bound then snap back to the boundY
             position.y = boundY;
-        } else if (position.y < -boundY) {
+        }
+        else if (position.y < -boundY)
+        {
             position.y = -boundY;
         }
 
@@ -104,7 +113,7 @@ public class PlayerPaddle : MonoBehaviour {
     {
         //only manage bullets if we don't have the 
         float dt = Time.deltaTime;
-        if (currentBullets < TOTAL_BULLETS 
+        if (currentBullets < TOTAL_BULLETS
             && !isStunned)
         {
             if (bulletRegenTimer <= 0)
@@ -133,23 +142,23 @@ public class PlayerPaddle : MonoBehaviour {
         bulletsText.text = currentBullets.ToString();
     }
 
-    private void managePlayerShooting()
+    private void manageShooting()
     {
         if (!isStunned)
         {
-            if (Input.GetKey(shoot))
-            {
-                if (currentBullets > 0 && shootTimer <= 0)
-                {
-                    shootTimer = SHOOT_DELAY;
-                    currentBullets--;
-                    GameObject bullet = Instantiate(bulletObject);
-                    Vector3 pos = this.transform.position;
-                    pos.x += 0.5f;
-                    bullet.transform.position = pos;
 
-                    bullet.SendMessage("setOwner", isPlayer, SendMessageOptions.RequireReceiver);
-                }
+            if (currentBullets > 0 && shootTimer <= 0)
+            {
+                int sign = 1;
+                if (!isLeft) sign = -1;
+                shootTimer = SHOOT_DELAY;
+                currentBullets--;
+                GameObject bullet = Instantiate(bulletObject);
+                Vector3 pos = this.transform.position;
+                pos.x += (0.5f * sign);
+                bullet.transform.position = pos;
+
+                bullet.SendMessage("setOwner", isLeft, SendMessageOptions.RequireReceiver);
             }
         }
     }
@@ -199,7 +208,7 @@ public class PlayerPaddle : MonoBehaviour {
         //handle shield regeneration
         if (currentShield < SHIELD_FULL_HP)
         {
-            if (shieldCurrentCooldown <= 0) 
+            if (shieldCurrentCooldown <= 0)
             {
                 shieldCurrentCooldown = SHIELD_REGEN_TIMER;
                 currentShield += SHIELD_REGEN;
@@ -214,15 +223,26 @@ public class PlayerPaddle : MonoBehaviour {
                 shieldCurrentCooldown -= dt;
             }
         }
-    }
-    public void damageShield (float damage)
-    {
-        //TODO - not allow lose more shield if already stunned
-        this.currentShield -= damage;
-        if(this.currentShield <= 0)
+
+        if (shieldUI != null)
         {
-            currentShield = 0.0f;
-            isStunned = true;
+            //calculate X scale using currentHealth
+            //full health means scale.X = 1
+            var scale = shieldUI.transform.localScale;
+            scale.x = currentShield / SHIELD_FULL_HP;
+            shieldUI.transform.localScale = scale;
+        }
+    }
+    public void damageShield(float damage)
+    {
+        if (!isStunned)
+        {
+            this.currentShield -= damage;
+            if (this.currentShield <= 0)
+            {
+                currentShield = 0.0f;
+                isStunned = true;
+            }
         }
     }
 
@@ -253,6 +273,24 @@ public class PlayerPaddle : MonoBehaviour {
         else
         {
             return 0;
+        }
+    }
+
+    private void resetShootingTimer()
+    {
+        currentShootingTimer = Random.Range(0.0f, 8.0f);
+    }
+
+    private void manageAIShooting()
+    {
+        if (currentShootingTimer <= 0)
+        {
+            manageShooting();
+            resetShootingTimer();
+        }
+        else
+        {
+            currentShootingTimer -= Time.deltaTime;
         }
     }
 }
